@@ -126,7 +126,7 @@ class IterativeReconstructor(pl.LightningModule):
                     self.logger.experiment.add_image(
                         "deblurred " + dataset, reco_grid, global_step=self.current_epoch)
 
-                    gt_grid = torchvision.utils.make_grid(x_hat, normalize=True,
+                    gt_grid = torchvision.utils.make_grid(x, normalize=True,
                                                             scale_each=True)
                     self.logger.experiment.add_image(
                         "ground truth " + dataset, gt_grid, global_step=self.current_epoch)
