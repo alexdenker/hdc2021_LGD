@@ -1,0 +1,19 @@
+batch_norm: true
+channels:
+- 32
+- 64
+- 64
+- 128
+img_shape: !!python/tuple
+- 181
+- 294
+kappa: 0.03
+lr: 0.0001
+n_iter: 9
+n_memory: 4
+radius: 10.3
+skip_channels:
+- 16
+- 32
+- 32
+- 64
