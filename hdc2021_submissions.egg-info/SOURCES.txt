@@ -1,0 +1,8 @@
+README.md
+setup.py
+hdc2021_submissions.egg-info/PKG-INFO
+hdc2021_submissions.egg-info/SOURCES.txt
+hdc2021_submissions.egg-info/dependency_links.txt
+hdc2021_submissions.egg-info/not-zip-safe
+hdc2021_submissions.egg-info/requires.txt
+hdc2021_submissions.egg-info/top_level.txt
