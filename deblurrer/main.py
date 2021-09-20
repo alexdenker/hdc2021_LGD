@@ -20,9 +20,9 @@ parser.add_argument('step')
 
 def main(input_files, output_files, step):
     # load model 
-    base_path = "weights"
+    base_path = os.path.join(os.path.dirname(__file__), 'weights')
     experiment_name = 'step_' + str(step)  
-    version = 'version_1'
+    version = 'version_0'
     chkp_name = 'learned_gradient_descent'
     path_parts = [base_path, experiment_name, 'default',
                 version, 'checkpoints', chkp_name + '.ckpt']
@@ -48,6 +48,7 @@ def main(input_files, output_files, step):
 
             im = Image.fromarray(x_hat[0][0]*255.).convert("L")
             print(im)
+            os.makedirs(output_files, exist_ok=True)
             im.save(os.path.join(output_files,f.split(".")[0] + ".PNG"))
 
 
