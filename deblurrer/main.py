@@ -19,6 +19,8 @@ parser.add_argument('step')
 
 
 def main(input_files, output_files, step):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     # load model 
     base_path = os.path.join(os.path.dirname(__file__), 'weights')
     experiment_name = 'step_' + str(step)  
@@ -29,7 +31,7 @@ def main(input_files, output_files, step):
     chkp_path = os.path.join(*path_parts)
     #reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
     reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)
-    reconstructor.to("cuda")
+    reconstructor.to(device)
 
     upsample = torch.nn.Upsample(size=(1460, 2360), mode='nearest')
 
@@ -39,7 +41,7 @@ def main(input_files, output_files, step):
             print(y.shape)
             y = torch.from_numpy(y/65535.).float()
             y = y.unsqueeze(0).unsqueeze(0)
-            y = y.to("cuda")
+            y = y.to(device)
             with torch.no_grad():
                 y = reconstructor.downsampling(y)
                 x_hat = reconstructor.forward(y)
