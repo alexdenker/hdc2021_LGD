@@ -136,8 +136,7 @@ for step in range(5, 20):
             reco = reconstructor.forward(obs)
             reco = upsample(reco)
             reco = reco.cpu().numpy()
-            reco = np.cli
-            p(reco, 0, 1)
+            reco = np.clip(reco, 0, 1)
             # calculate quality metrics
             psnrs.append(PSNR(reco[0][0], gt.numpy()[0][0]))
             ssims.append(SSIM(reco[0][0], gt.numpy()[0][0]))
