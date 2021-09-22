@@ -35,7 +35,7 @@ radius_dict = {
     19 : 19.4
 }
 
-step = 14
+step = 2
 dataset = MultipleBlurredDataModule(batch_size=8, blurring_step=step)#BlurredDataModule(batch_size=8, blurring_step=step)
 dataset.prepare_data()
 dataset.setup()
@@ -71,7 +71,7 @@ trainer_args = {'accelerator': 'ddp',
                 #'accumulate_grad_batches': 6}#,}
                 # 'log_gpu_memory': 'all'} # might slow down performance (unnecessary uses only the output of nvidia-smi)
 
-reconstructor = IterativeReconstructor(radius=radius_dict[step], n_memory=5, n_iter=9, channels=[32,64, 128, 128], skip_channels=[16,32,64,64], img_shape=(181, 294))
+reconstructor = IterativeReconstructor(radius=radius_dict[step], n_memory=4, n_iter=9, channels=[32,64, 64, 128], skip_channels=[16,32,32,64], img_shape=(181, 294), regularization=None)
 
 trainer = pl.Trainer(max_epochs=200, **trainer_args)
 

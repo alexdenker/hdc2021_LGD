@@ -19,7 +19,7 @@ from deblurrer.model.AnisotropicDiffusion import PeronaMalik
 
 class IterativeReconstructor(pl.LightningModule):
     def __init__(self, lr=1e-4, n_iter=8, n_memory=5, 
-                 batch_norm=True,channels=[2,4, 8, 16, 16], skip_channels=[2,4,8,16,16], radius=5.5, img_shape=(1460, 2360), kappa=0.03):
+                 batch_norm=True,channels=[2,4, 8, 16, 16], skip_channels=[2,4,8,16,16], radius=5.5, img_shape=(1460, 2360), kappa=0.03, regularization='pm', use_sigmoid=True):
         super().__init__()
         # img_shape: 181, 294
         self.lr = lr
@@ -33,16 +33,21 @@ class IterativeReconstructor(pl.LightningModule):
             'img_shape': img_shape, 
             'kappa' : kappa,
             'channels': channels, 
-            'skip_channels': skip_channels
+            'skip_channels': skip_channels,
+            'regularization': regularization,
+            'use_sigmoid': use_sigmoid
         }
         self.save_hyperparameters(save_hparams)
 
         self.downsampling = Downsampling(steps=3)
 
         self.blur = BokehBlur(r=radius, shape=img_shape)
-        perona_malik = PeronaMalik(kappa=kappa)
+        if regularization == 'pm':
+            op_reg = PeronaMalik(kappa=kappa)
+        else:
+            op_reg = None
 
-        self.net = IterativeDeblurringNet(n_iter=n_iter, op=self.blur, op_reg=perona_malik, op_init=None,
+        self.net = IterativeDeblurringNet(n_iter=n_iter, op=self.blur, op_reg=op_reg, op_init=None, use_sigmoid = use_sigmoid,
             n_memory=n_memory,channels=channels, skip_channels=skip_channels,
             batch_norm=batch_norm)
 
@@ -187,12 +192,17 @@ class IterativeDeblurringNet(nn.Module):
         self.op_init = op_init
         self.n_memory = n_memory
         self.use_sigmoid = use_sigmoid
-
-        self.iterative_blocks = nn.ModuleList()
-        for it in range(n_iter):
-            self.iterative_blocks.append(IterativeDeblurringBlock(
-                n_in=3, n_out=1, n_memory=self.n_memory-1, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
-
+        
+        if self.op_reg is not None:
+            self.iterative_blocks = nn.ModuleList()
+            for it in range(n_iter):
+                self.iterative_blocks.append(IterativeDeblurringBlock(
+                    n_in=3, n_out=1, n_memory=self.n_memory-1, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+        else: 
+            self.iterative_blocks = nn.ModuleList()
+            for it in range(n_iter):
+                self.iterative_blocks.append(IterativeDeblurringBlock(
+                    n_in=2, n_out=1, n_memory=self.n_memory-1, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
 
     def forward(self, y, it=-1):
         x_cur = torch.zeros(y.shape[0], self.n_memory,
@@ -203,10 +213,14 @@ class IterativeDeblurringNet(nn.Module):
         
         n_iter = self.n_iter if it == -1 else min(self.n_iter, it)
         for i in range(n_iter):
-            pm = self.op_reg(x_cur[:,  0:1, ...])
             grad = self.op.grad(x_cur[:,  0:1, ...], y)
 
-            x_update = torch.cat([x_cur, grad, pm], dim=1)
+            if self.op_reg is not None: 
+                pm = self.op_reg(x_cur[:,  0:1, ...])
+                x_update = torch.cat([x_cur, grad, pm], dim=1)
+            else:
+                x_update = torch.cat([x_cur, grad], dim=1)
+
             x_update = self.iterative_blocks[i](x_update)
             x_cur = x_cur + x_update
             

@@ -196,7 +196,7 @@ class BlurredDataset(Dataset):
     def __len__(self):
         return len(self.subset)
 
-
+"""
 if __name__ == "__main__":
     dataset = BlurredDataModule(font='Times', blurring_step=8)
     dataset.prepare_data()
@@ -205,3 +205,22 @@ if __name__ == "__main__":
     for batch in dataset.train_dataloader():
         x, y = batch 
         print(x.shape, y.shape)
+
+"""
+
+
+if __name__ == "__main__":
+
+    dataset = MultipleBlurredDataModule(batch_size=12, blurring_step=1)#BlurredDataModule(batch_size=8, blurring_step=step)
+    dataset.prepare_data()
+    dataset.setup()
+
+    loaders = dataset.train_dataloader()
+
+    for batch in loaders['Blurred']:
+        print(batch[0].shape)
+        #print("---------")
+        #print(batch.keys())
+        #for key in batch.keys():
+        #    print(key, batch[key][0].shape,batch[key][1].shape)
+        #print("---------")
