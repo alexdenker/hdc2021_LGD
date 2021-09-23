@@ -1,6 +1,6 @@
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import pytorch_lightning as pl
 
@@ -57,7 +57,7 @@ for i in range(len(regularization)):
 
                 checkpoint_callback = ModelCheckpoint(
                     dirpath=None,
-                    filename='learned_gradient_descent',
+                    save_last = True, 
                     save_top_k=1,
                     verbose=True,
                     monitor='val_loss',
