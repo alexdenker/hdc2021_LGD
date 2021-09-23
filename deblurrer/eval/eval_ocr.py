@@ -96,7 +96,7 @@ for step in range(5, 20):
 
     num_test_images = len(text)
 
-    base_path = "/localdata/AlexanderDenker/deblurring_experiments/pm_no_sigmoid"
+    base_path = "/localdata/AlexanderDenker/deblurring_experiments/no_pm_no_sigmoid"
     experiment_name = 'step_' + str(step)  
     version = 'version_0'
     chkp_name = 'learned_gradient_descent'
