@@ -1,0 +1,157 @@
+
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+from pathlib import Path
+
+import torch
+import yaml
+from dival.util.plot import plot_images
+
+import matplotlib.pyplot as plt 
+from dival.measure import PSNR, SSIM
+from tqdm import tqdm
+import numpy as np 
+
+import pytesseract
+from fuzzywuzzy import fuzz
+
+from skimage.transform import resize
+from PIL import Image
+
+
+
+from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule
+from deblurrer.model.GD_deblurrer_downsampling import IterativeReconstructor
+from deblurrer.utils import data_util
+
+
+def normalize(img):
+    """
+    Linear histogram normalization
+    """
+    arr = np.array(img, dtype=float)
+
+    arr = (arr - arr.min()) * (255 / arr[:, :50].min())
+    arr[arr > 255] = 255
+    arr[arr < 0] = 0
+
+    return Image.fromarray(arr.astype('uint8'), 'L')
+
+
+def evaluateImage(img, trueText):
+
+    # resize image to improve OCR
+    w, h = img.shape
+    img = resize(img, (int(w / 2), int(h / 2)))
+
+    img = Image.fromarray(np.uint8(img*255))
+    img = normalize(img)
+
+    # run OCR
+    options = r'--oem 1 --psm 6 -c load_system_dawg=false -c load_freq_dawg=false  -c textord_old_xheight=0  -c textord_min_xheight=100 -c ' \
+              r'preserve_interword_spaces=0'
+    OCRtext = pytesseract.image_to_string(img, config=options)
+
+    # removes form feed character  \f
+    OCRtext = OCRtext.replace('\n\f', '').replace('\n\n', '\n')
+
+    # split lines
+    OCRtext = OCRtext.split('\n')
+
+    # remove empty lines
+    OCRtext = [x.strip() for x in OCRtext if x.strip()]
+
+    # check if OCR extracted 3 lines of text
+    #print('True text (middle line): %s' % trueText[1])
+
+    if len(OCRtext) != 3:
+        print('ERROR: OCR text does not have 3 lines of text!')
+        #print(OCRtext)
+        return 0.0
+    else:
+        score = fuzz.ratio(trueText[1], OCRtext[1])
+        #print('OCR  text (middle line): %s' % OCRtext[1])
+        #print('Score: %d' % score)
+
+        return float(score)
+
+step = 17
+
+X_times, Y_times, text_times = data_util.load_data_with_text('Times', step)
+X_verdana, Y_verdana, text_verdana = data_util.load_data_with_text('Verdana', step)
+
+X = np.concatenate([X_times, X_verdana], axis=0)
+Y = np.concatenate([Y_times, Y_verdana], axis=0)
+text = text_times + text_verdana
+
+X = np.expand_dims(X, axis=1).astype(np.float32)
+Y = np.expand_dims(Y, axis=1).astype(np.float32)
+
+X = torch.from_numpy(X)/65535.
+Y = torch.from_numpy(Y)/65535.
+
+num_test_images = len(text)
+
+base_path = "/localdata/AlexanderDenker/deblurring_experiments/pm_no_sigmoid"
+experiment_name = 'step_' + str(step)  
+version = 'version_0'
+#chkp_name ='last'# 'epoch=8-step=125' #
+#path_parts = [base_path, experiment_name, 'default',
+#            version, 'checkpoints', chkp_name + '.ckpt']
+
+path_parts = [base_path, experiment_name, 'default',
+            version, 'checkpoints']
+
+chkp_path = os.path.join(*path_parts)
+
+def search_for_file(chkp_path, identifier):
+    for ckpt_file in os.listdir(chkp_path):
+        if ckpt_file.contains(identifier):
+            return ckpt_file
+
+print(search_for_file(chkp_path, "epoch"))
+
+chkp_path = os.path.join(*path_parts)
+
+#reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
+reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)
+reconstructor.to("cuda")
+
+
+psnrs = []
+ssims = []
+ocr_acc = []
+with torch.no_grad():
+    for i in tqdm(range(num_test_images), total=num_test_images):
+        gt, obs = X[i, :, :], Y[i, :, :]
+        gt, obs = gt.unsqueeze(0), obs.unsqueeze(0)
+        obs = obs.to('cuda')
+        upsample = torch.nn.Upsample(size=gt.shape[2:], mode='nearest')
+
+        # create reconstruction from observation
+        obs = reconstructor.downsampling(obs)
+        reco = reconstructor.forward(obs)
+        reco = upsample(reco)
+        reco = reco.cpu().numpy()
+        reco = np.clip(reco, 0, 1)
+        plt.figure()
+        plt.imshow(reco[0][0], cmap="gray")
+        plt.show()
+        # calculate quality metrics
+        psnrs.append(PSNR(reco[0][0], gt.numpy()[0][0]))
+        ssims.append(SSIM(reco[0][0], gt.numpy()[0][0]))
+        ocr_acc.append(evaluateImage(reco[0][0], text[i]))
+
+mean_psnr = np.mean(psnrs)
+std_psnr = np.std(psnrs)
+mean_ssim = np.mean(ssims)
+std_ssim = np.std(ssims)
+
+print('---')
+print('Results:')
+print('mean psnr: {:f}'.format(mean_psnr))
+print('std psnr: {:f}'.format(std_psnr))
+print('mean ssim: {:f}'.format(mean_ssim))
+print('std ssim: {:f}'.format(std_ssim))
+print('mean ocr acc: ', np.mean(ocr_acc))
+
