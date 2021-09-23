@@ -10,12 +10,15 @@ import torch
 import torch.nn as nn 
 import torch.nn.functional as F
 
+import numpy as np
 import torchvision
 
 
 from dival.reconstructors.networks.unet import UNet
 from deblurrer.model.bokeh_blur_rfft_train import BokehBlur
 from deblurrer.model.AnisotropicDiffusion import PeronaMalik
+from deblurrer.utils.ocr import evaluateImage
+
 
 class IterativeReconstructor(pl.LightningModule):
     def __init__(self, lr=1e-4, n_iter=8, n_memory=5, 
@@ -59,7 +62,7 @@ class IterativeReconstructor(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # training_step defined the train loop.
         # It is independent of forward
-        x, y = batch['Blurred']
+        x, y, _ = batch['Blurred']
         x = self.downsampling(x)
         y = self.downsampling(y)
 
@@ -83,13 +86,25 @@ class IterativeReconstructor(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # training_step defined the train loop.
         # It is independent of forward
-        x, y = batch
+        x, y, text = batch
         x = self.downsampling(x)
         y = self.downsampling(y)
         x_hat = self.net(y) 
         loss = F.mse_loss(x_hat, x)
+
+        # preprocess image 
+        upsample = torch.nn.Upsample(size=(1460, 2360), mode='nearest')
+        x_hat = upsample(x_hat)
+        x_hat = x_hat.cpu().numpy()
+        x_hat = np.clip(x_hat, 0, 1)
+
+        ocr_acc = []
+        for i in range(len(text)):
+
+            ocr_acc.append(evaluateImage(x_hat[i, 0, :, :], text))
         # Logging to TensorBoard by default
         self.log('val_loss', loss)
+        self.log('val_ocr_acc', np.mean(ocr_acc))
         return loss 
 
     
@@ -98,9 +113,11 @@ class IterativeReconstructor(pl.LightningModule):
         #for name,params in self.named_parameters():
         #    self.logger.experiment.add_histogram(name, params, self.current_epoch)
 
-        x, y = self.last_batch['Blurred']
+        x, y, _ = self.last_batch['Blurred']
+
         x = self.downsampling(x)
         y = self.downsampling(y)
+
         img_grid = torchvision.utils.make_grid(x, normalize=True,
                                                scale_each=True)
 
@@ -119,7 +136,6 @@ class IterativeReconstructor(pl.LightningModule):
                                                     scale_each=True)
             self.logger.experiment.add_image(
                 "deblurred", reco_grid, global_step=self.current_epoch)
-
             for dataset in ['EMNIST', 'STL10']:
                 x, _ = self.last_batch[dataset]
                 with torch.no_grad():
@@ -142,10 +158,21 @@ class IterativeReconstructor(pl.LightningModule):
                         "blurred " + dataset, blurred_grid, global_step=self.current_epoch)
 
 
-
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        return optimizer
+
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+        # initial lr = 0.001
+        # after epoch 10: lr = 0.0009
+        # after epoch 20: lr = 0.00081
+        # ... 
+
+        schedulers = {
+         'scheduler': scheduler,
+         'monitor': 'val_loss', 
+         'interval': 'epoch',
+         'frequency': 1 }
+        return [optimizer], [schedulers]
 
 
 class Downsampling(nn.Module):
@@ -197,36 +224,37 @@ class IterativeDeblurringNet(nn.Module):
             self.iterative_blocks = nn.ModuleList()
             for it in range(n_iter):
                 self.iterative_blocks.append(IterativeDeblurringBlock(
-                    n_in=3, n_out=1, n_memory=self.n_memory-1, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                    n_in=4, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
         else: 
             self.iterative_blocks = nn.ModuleList()
             for it in range(n_iter):
                 self.iterative_blocks.append(IterativeDeblurringBlock(
-                    n_in=2, n_out=1, n_memory=self.n_memory-1, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                    n_in=3, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
 
     def forward(self, y, it=-1):
-        x_cur = torch.zeros(y.shape[0], self.n_memory,
-                                 *self.op.shape,
+        # current iterate
+        x_cur = torch.zeros(y.shape[0], 1, *self.op.shape,
                                  device=y.device)
         if self.op_init is not None:
             x_cur[:] = self.op_init(y)  # broadcast across dim=1
         
+        # memory
+        s = torch.zeros(y.shape[0], self.n_memory, *self.op.shape,
+                                 device=y.device)
         n_iter = self.n_iter if it == -1 else min(self.n_iter, it)
         for i in range(n_iter):
-            grad = self.op.grad(x_cur[:,  0:1, ...], y)
+            grad = self.op.grad(x_cur, y)
 
             if self.op_reg is not None: 
-                pm = self.op_reg(x_cur[:,  0:1, ...])
-                x_update = torch.cat([x_cur, grad, pm], dim=1)
+                pm = self.op_reg(x_cur)
+                x_update = torch.cat([x_cur, s, grad, pm, y], dim=1)
             else:
-                x_update = torch.cat([x_cur, grad], dim=1)
+                x_update = torch.cat([x_cur, s, grad, y], dim=1)
 
             x_update = self.iterative_blocks[i](x_update)
-            x_cur = x_cur + x_update
-            
+            x_cur = x_cur + x_update[:, 0:1, ...]
+            s = x_update[:, 1:, ...]
 
-
-        x = x_cur[:, 0:1, ...]
         if self.use_sigmoid:
-            x = torch.sigmoid(x)
-        return x
+            x_cur = torch.sigmoid(x_cur)
+        return x_cur

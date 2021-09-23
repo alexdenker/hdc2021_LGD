@@ -34,13 +34,14 @@ class BlurredDataModule(pl.LightningDataModule):
     def setup(self, stage:str = None): 
 
         if self.font == 'both':
-            X_times, Y_times = data_util.load_data('Times', self.blurring_step)
-            X_verdana, Y_verdana = data_util.load_data('Verdana', self.blurring_step)
+            X_times, Y_times, text_times = data_util.load_data_with_text('Times', self.blurring_step)
+            X_verdana, Y_verdana, text_verdana = data_util.load_data_with_text('Verdana', self.blurring_step)
 
             X = np.concatenate([X_times, X_verdana], axis=0)
             Y = np.concatenate([Y_times, Y_verdana], axis=0)
+            text = text_times + text_verdana
         else: 
-            X, Y = data_util.load_data(self.font, self.blurring_step)
+            X, Y, text = data_util.load_data_with_text(self.font, self.blurring_step)
 
         # X not blurry, Y blurry
         # X, Y have datatype np.uint16 (Unsigned integer (0 to 65535))
@@ -52,8 +53,9 @@ class BlurredDataModule(pl.LightningDataModule):
         X = torch.from_numpy(X)
         Y = torch.from_numpy(Y)
 
-        blurred_dataset = TensorDataset(X,Y)
+        blurred_dataset = BlurredTextDataset(X, Y, text, transform=True)#TensorDataset(X,Y)
 
+        # implement other spliting method?
         if self.split == 'random':
             # use a fixed generator for reproducible results (so random, but fixed)
             train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(blurred_dataset, [int(0.8*X.shape[0]), int(0.1*X.shape[0]), int(0.1*X.shape[0])], 
@@ -62,21 +64,19 @@ class BlurredDataModule(pl.LightningDataModule):
             train_dataset = blurred_dataset
             val_dataset = blurred_dataset
             test_dataset = blurred_dataset
-        # implement other spliting method?
-
 
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
             # load training data 
 
-            self.blurred_dataset_train = BlurredDataset(train_dataset, transform=True)
+            self.blurred_dataset_train = train_dataset #BlurredDataset(train_dataset, transform=True)
             self.dims = tuple(self.blurred_dataset_train[0][0].shape)
 
-            self.blurred_dataset_validation = BlurredDataset(val_dataset, transform=True)
+            self.blurred_dataset_validation = val_dataset #BlurredDataset(val_dataset, transform=True)
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
-            self.blurred_dataset_test = BlurredDataset(test_dataset, transform=True)
+            self.blurred_dataset_test = test_dataset #BlurredDataset(test_dataset, transform=True)
 
             self.dims = tuple(self.blurred_dataset_test[0][0].shape)
 
@@ -128,6 +128,73 @@ class MultipleBlurredDataModule(BlurredDataModule):
     def __init__(self, batch_size:int = 4, blurring_step:int=0, font:str='both', num_data_loader_workers:int=8, split:str = 'random'):
         super().__init__(batch_size, blurring_step, font,num_data_loader_workers, split)
 
+    def setup(self, stage:str = None): 
+
+        if self.font == 'both':
+            X_times, Y_times, text_times = data_util.load_data_with_text('Times', self.blurring_step)
+            X_verdana, Y_verdana, text_verdana = data_util.load_data_with_text('Verdana', self.blurring_step)
+
+            X = np.concatenate([X_times, X_verdana], axis=0)
+            Y = np.concatenate([Y_times, Y_verdana], axis=0)
+            text = text_times + text_verdana
+        else: 
+            X, Y, text = data_util.load_data_with_text(self.font, self.blurring_step)
+
+        # X not blurry, Y blurry
+        # X, Y have datatype np.uint16 (Unsigned integer (0 to 65535))
+        # Should we do some sort of preprocessing? 
+
+        X = np.expand_dims(X, axis=1).astype(np.float32)
+        Y = np.expand_dims(Y, axis=1).astype(np.float32)
+
+        X = torch.from_numpy(X)
+        Y = torch.from_numpy(Y)
+
+        blurred_dataset = BlurredTextDataset(X, Y, text, transform=True)#TensorDataset(X,Y)
+
+        # implement other spliting method?
+        if self.split == 'random':
+            # use a fixed generator for reproducible results (so random, but fixed)
+            train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(blurred_dataset, [int(0.8*X.shape[0]), int(0.1*X.shape[0]), int(0.1*X.shape[0])], 
+                                                                                    generator=torch.Generator().manual_seed(42))
+        elif self.split == 'no_split':
+            train_dataset = blurred_dataset
+            val_dataset = blurred_dataset
+            test_dataset = blurred_dataset
+
+
+        transform_emnist = transforms.Compose(
+                [#transforms.Grayscale(), 
+                transforms.ToTensor(), 
+                transforms.Resize(size=(181, 294)),
+                transforms.RandomInvert(p=0.5),
+                transforms.RandomVerticalFlip(p=0.5)])
+
+        transform_stl10 = transforms.Compose(
+                [transforms.Grayscale(), 
+                transforms.ToTensor(), 
+                transforms.Resize(size=(181, 294)),
+                transforms.RandomInvert(p=0.5)])
+
+        # Assign train/val datasets for use in dataloaders
+        if stage == 'fit' or stage is None:
+            # load training data 
+
+            self.blurred_dataset_train = train_dataset #BlurredDataset(train_dataset, transform=True)
+            self.dims = tuple(self.blurred_dataset_train[0][0].shape)
+
+            self.blurred_dataset_validation = val_dataset #BlurredDataset(val_dataset, transform=True)
+
+            self.trainset_emnist = torchvision.datasets.EMNIST(root="/localdata/EMNIST", split='balanced', download=False, transform=transform_emnist)
+            self.trainset_stl10 =  torchvision.datasets.STL10(root="/localdata/STL10", split='train', download=False, transform=transform_stl10)
+
+        # Assign test dataset for use in dataloader(s)
+        if stage == 'test' or stage is None:
+            self.blurred_dataset_test = test_dataset #BlurredDataset(test_dataset, transform=True)
+
+            self.dims = tuple(self.blurred_dataset_test[0][0].shape)
+
+
     def train_dataloader(self):
             """
             Data loader for the training data.
@@ -138,29 +205,16 @@ class MultipleBlurredDataModule(BlurredDataModule):
                 Training data loader.
 
             """
-            transform = transforms.Compose(
-                [#transforms.Grayscale(), 
-                transforms.ToTensor(), 
-                transforms.Resize(size=(181, 294)),
-                transforms.RandomInvert(p=0.5),
-                transforms.RandomVerticalFlip(p=0.5)])
 
-            trainset = torchvision.datasets.EMNIST(root="/localdata/EMNIST", split='balanced', download=False, transform=transform)
-            trainloader_emnist = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size // 4,
+            trainloader_emnist = torch.utils.data.DataLoader(self.trainset_emnist, batch_size=1,
                                                     shuffle=True, num_workers=2)
 
-            loader_challenge = DataLoader(self.blurred_dataset_train, batch_size=int(2*self.batch_size // 4),
+            loader_challenge = DataLoader(self.blurred_dataset_train, batch_size=self.batch_size - 2,
                             num_workers=self.num_data_loader_workers,
                             shuffle=True, pin_memory=True)
             
-            transform = transforms.Compose(
-                [transforms.Grayscale(), 
-                transforms.ToTensor(), 
-                transforms.Resize(size=(181, 294)),
-                transforms.RandomInvert(p=0.5)])
-
-            trainset = torchvision.datasets.STL10(root="/localdata/STL10", split='train', download=False, transform=transform)
-            trainloader_stl10 = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size // 4,
+           
+            trainloader_stl10 = torch.utils.data.DataLoader(self.trainset_stl10, batch_size=1,
                                                     shuffle=True, num_workers=2)
 
 
@@ -191,7 +245,7 @@ class BlurredDataset(Dataset):
             x = transforms.functional.normalize(x, mean=[0], std=[65535])
             y = transforms.functional.normalize(y, mean=[0], std=[65535])
 
-        return (x,y)
+        return (x,y, self.subset[index][2])
         
     def __len__(self):
         return len(self.subset)
@@ -208,19 +262,64 @@ if __name__ == "__main__":
 
 """
 
+class BlurredTextDataset(Dataset):
+    def __init__(self, X, Y, true_text, transform:bool=True):
+        self.X = X
+        self.Y = Y
+        self.true_text = true_text
+
+        self.transform = transform
+
+    def __getitem__(self, index):
+        x = self.X[index]
+        y = self.Y[index]
+        text = self.true_text[index]
+        if self.transform: 
+            # X, Y have datatype np.uint16 (Unsigned integer (0 to 65535)) - simply divide by 65535
+            x = transforms.functional.normalize(x, mean=[0], std=[65535])
+            y = transforms.functional.normalize(y, mean=[0], std=[65535])
+
+        return (x,y, text)
+        
+    def __len__(self):
+        return len(self.true_text)
+
+
 
 if __name__ == "__main__":
+    """
+    X_times, Y_times, text_times = data_util.load_data_with_text('Times', 5)
+    X_verdana, Y_verdana, text_verdana = data_util.load_data_with_text('Verdana', 5)
 
+    X = np.concatenate([X_times, X_verdana], axis=0)
+    Y = np.concatenate([Y_times, Y_verdana], axis=0)
+
+    X = np.expand_dims(X, axis=1).astype(np.float32)
+    Y = np.expand_dims(Y, axis=1).astype(np.float32)
+
+    X = torch.from_numpy(X)
+    Y = torch.from_numpy(Y)
+    text = text_times + text_verdana
+
+    print(X.shape, Y.shape, len(text))
+
+    dataset = BlurredTextDataset(X, Y, text)
+
+    x, y, t = dataset[0]
+    print(x.shape, y.shape, t)
+
+    import matplotlib.pyplot as plt 
+    plt.figure()
+    plt.imshow(x[0, :, :], cmap="gray")
+    plt.show()
+    """
+    
     dataset = MultipleBlurredDataModule(batch_size=12, blurring_step=1)#BlurredDataModule(batch_size=8, blurring_step=step)
     dataset.prepare_data()
     dataset.setup()
 
-    loaders = dataset.train_dataloader()
+    for i in range(2):
+        for batch in dataset.train_dataloader()['STL10']:
+            print(batch[0][0,0,50,0])
+            break
 
-    for batch in loaders['Blurred']:
-        print(batch[0].shape)
-        #print("---------")
-        #print(batch.keys())
-        #for key in batch.keys():
-        #    print(key, batch[key][0].shape,batch[key][1].shape)
-        #print("---------")

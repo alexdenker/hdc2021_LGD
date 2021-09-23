@@ -70,7 +70,7 @@ def load_data_with_text(font, step):
 
             # remome \n character
             trueText = [text.rstrip() for text in trueText]
-            true_text.append(trueText)
+            true_text.append(trueText[1]) # trueText , only output middle line
             
 
     return np.asarray(x_images), np.asarray(y_images), true_text
