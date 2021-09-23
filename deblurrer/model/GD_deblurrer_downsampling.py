@@ -22,7 +22,7 @@ from deblurrer.utils.ocr import evaluateImage
 
 class IterativeReconstructor(pl.LightningModule):
     def __init__(self, lr=1e-4, n_iter=8, n_memory=5, 
-                 batch_norm=True,channels=[2,4, 8, 16, 16], skip_channels=[2,4,8,16,16], radius=5.5, img_shape=(1460, 2360), kappa=0.03, regularization='pm', use_sigmoid=True):
+                 batch_norm=True,channels=[2,4, 8, 16, 16], skip_channels=[2,4,8,16,16], radius=5.5, img_shape=(1460, 2360), kappa=0.03, regularization='pm', use_sigmoid=True, jittering_std=0.0):
         super().__init__()
         # img_shape: 181, 294
         self.lr = lr
@@ -38,9 +38,12 @@ class IterativeReconstructor(pl.LightningModule):
             'channels': channels, 
             'skip_channels': skip_channels,
             'regularization': regularization,
-            'use_sigmoid': use_sigmoid
+            'use_sigmoid': use_sigmoid, 
+            'jittering_std': jittering_std
         }
         self.save_hyperparameters(save_hparams)
+
+        self.jittering_std = jittering_std
 
         self.downsampling = Downsampling(steps=3)
 
@@ -66,9 +69,13 @@ class IterativeReconstructor(pl.LightningModule):
         x = self.downsampling(x)
         y = self.downsampling(y)
 
+        if self.jittering_std > 0:
+            y = y + torch.randn((y.shape),device=self.device)*self.jittering_std
+
         x_hat = self.net(y) 
 
-        loss = F.mse_loss(x_hat, x) 
+        l1_loss = torch.nn.L1Loss()
+        loss = l1_loss(x_hat, x) #F.mse_loss(x_hat, x) 
         for dataset in ['EMNIST', 'STL10']:
             x, _ = batch[dataset]
             y = self.blur(x)
@@ -101,7 +108,7 @@ class IterativeReconstructor(pl.LightningModule):
         ocr_acc = []
         for i in range(len(text)):
 
-            ocr_acc.append(evaluateImage(x_hat[i, 0, :, :], text))
+            ocr_acc.append(evaluateImage(x_hat[i, 0, :, :], text[i]))
         # Logging to TensorBoard by default
         self.log('val_loss', loss)
         self.log('val_ocr_acc', np.mean(ocr_acc))
