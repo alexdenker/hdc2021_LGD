@@ -35,7 +35,7 @@ radius_dict = {
     19 : 19.4
 }
 
-step = 17
+step = 10
 dataset = MultipleBlurredDataModule(batch_size=6, blurring_step=step)#BlurredDataModule(batch_size=8, blurring_step=step)
 dataset.prepare_data()
 dataset.setup()
@@ -64,7 +64,8 @@ trainer_args = {'accelerator': 'ddp',
                 'gradient_clip_val': 1.0,
                 'logger': tb_logger,
                 'log_every_n_steps': 5,
-                'multiple_trainloader_mode': 'min_size', 
+                'multiple_trainloader_mode': 'min_size',
+                'accumulate_grad_batches': 4, 
                 'reload_dataloaders_every_epoch': True}
                 #'accumulate_grad_batches': 4, 
                 #'multiple_trainloader_mode': 'min_size',

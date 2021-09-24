@@ -77,6 +77,20 @@ class BokehBlur(nn.Module):
     
         return out
 
+    def wiener_filter(self, x, kappa=0.002):
+        kappa = torch.tensor(kappa)
+                
+        x_fft = torch.fft.rfft2(x)
+        
+        D_numeric =  1.0/(np.pi*self.r**2)*torch.sigmoid(self.scale.to(x.device)*(self.r - self.KR.to(x.device)))
+        D_numeric = torch.fft.fftshift(D_numeric) # get the circle in the right place!!!
+        D_filter = torch.fft.rfft2(D_numeric)
+
+        wiener_filter = (torch.abs(D_filter.to(x.device))**2/(torch.abs(D_filter.to(x.device))**2 + kappa))/D_filter.to(x.device)
+
+        x_re = torch.fft.irfft2(torch.multiply(wiener_filter, x_fft))
+        return x_re
+
 
 if __name__ == "__main__":
 
