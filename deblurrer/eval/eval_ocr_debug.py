@@ -5,7 +5,6 @@ from pathlib import Path
 
 import torch
 import yaml
-from dival.util.plot import plot_images
 
 import matplotlib.pyplot as plt 
 from dival.measure import PSNR, SSIM
@@ -20,7 +19,7 @@ from PIL import Image
 
 
 
-from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule
+from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule, ConcatBlurredDataModule
 from deblurrer.model.GD_deblurrer_downsampling import IterativeReconstructor
 from deblurrer.utils import data_util
 
@@ -69,26 +68,26 @@ def evaluateImage(img, trueText):
         #print(OCRtext)
         return 0.0
     else:
-        score = fuzz.ratio(trueText[1], OCRtext[1])
+        score = fuzz.ratio(trueText, OCRtext[1])
         #print('OCR  text (middle line): %s' % OCRtext[1])
         #print('Score: %d' % score)
 
         return float(score)
 
 
-step = 6
+step = 5
 
-dataset = BlurredDataModule(batch_size=1, blurring_step=step)
+dataset = ConcatBlurredDataModule(batch_size=1, blurring_step=step)
 dataset.prepare_data()
 dataset.setup()
 
 num_test_images = len(dataset.test_dataloader())
 
-identifier = "epoch"
+identifier = "last"
 
 base_path = "weights/default"
 experiment_name = 'step_' + str(step)  
-version = 'version_0'
+version = 'version_1'
 #chkp_name ='last'# 'epoch=8-step=125' #
 #path_parts = [base_path, experiment_name, 'default',
 #            version, 'checkpoints', chkp_name + '.ckpt']
@@ -110,8 +109,11 @@ chkp_path = os.path.join(chkp_path, chkp_name)
 
 #reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
 reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)
-#reconstructor.to("cuda")
+reconstructor.to("cuda")
+reconstructor.net.eval()
 
+print(reconstructor.blur.r)
+print(reconstructor.net.n_iter)
 
 psnrs = []
 ssims = []
@@ -119,24 +121,32 @@ ocr_acc = []
 with torch.no_grad():
     for i, batch in tqdm(zip(range(num_test_images),dataset.test_dataloader()), 
                          total=num_test_images):
-        
+        #batch = batch[0]
         gt, obs, text = batch
-        #obs = obs.to('cuda')
+        obs = obs.to('cuda')
         upsample = torch.nn.Upsample(size=gt.shape[2:], mode='nearest')
 
         # create reconstruction from observation
         obs = reconstructor.downsampling(obs)
-        reco = reconstructor.forward(obs)
+        reco = reconstructor.net.forward(obs)
+        """
+        fig, (ax1, ax2, ax3) = plt.subplots(1,3)
+        ax1.imshow(reco.cpu()[0][0], cmap="gray")
+        ax1.set_title("model output")
+        ax2.imshow(gt.cpu()[0][0], cmap="gray")
+        ax2.set_title("gt")
+        ax3.imshow(obs.cpu()[0][0], cmap="gray")
+        ax3.set_title("obs (model input)")
+        plt.show()
+        """
         reco = upsample(reco)
         reco = reco.cpu().numpy()
         reco = np.clip(reco, 0, 1)
-        plt.figure()
-        plt.imshow(reco[0][0], cmap="gray")
-        plt.show()
+
         # calculate quality metrics
         psnrs.append(PSNR(reco[0][0], gt.numpy()[0][0]))
         ssims.append(SSIM(reco[0][0], gt.numpy()[0][0]))
-        ocr_acc.append(evaluateImage(reco[0][0], text[i]))
+        ocr_acc.append(evaluateImage(reco[0][0], text))
 
 mean_psnr = np.mean(psnrs)
 std_psnr = np.std(psnrs)

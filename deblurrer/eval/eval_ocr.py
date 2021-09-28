@@ -81,20 +81,13 @@ for step in range(5, 20):
     save_report = True 
     plot_examples = False 
 
-    X_times, Y_times, text_times = data_util.load_data_with_text('Times', step)
-    X_verdana, Y_verdana, text_verdana = data_util.load_data_with_text('Verdana', step)
+    dataset = BlurredDataModule(batch_size=1, blurring_step=step)
+    dataset.prepare_data()
+    dataset.setup()
 
-    X = np.concatenate([X_times, X_verdana], axis=0)
-    Y = np.concatenate([Y_times, Y_verdana], axis=0)
-    text = text_times + text_verdana
+    num_test_images = len(dataset.test_dataloader())
 
-    X = np.expand_dims(X, axis=1).astype(np.float32)
-    Y = np.expand_dims(Y, axis=1).astype(np.float32)
-
-    X = torch.from_numpy(X)/65535.
-    Y = torch.from_numpy(Y)/65535.
-
-    num_test_images = len(text)
+    
 
     base_path = "/localdata/AlexanderDenker/deblurring_experiments/no_pm_no_sigmoid"
     experiment_name = 'step_' + str(step)  
@@ -109,6 +102,7 @@ for step in range(5, 20):
         continue
     #reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
     reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)
+    reconstructor.eval()
     reconstructor.to("cuda")
 
 
@@ -124,10 +118,10 @@ for step in range(5, 20):
     ssims = []
     ocr_acc = []
     with torch.no_grad():
-        for i in tqdm(range(num_test_images), total=num_test_images):
-            gt, obs = X[i, :, :], Y[i, :, :]
-            gt, obs = gt.unsqueeze(0), obs.unsqueeze(0)
-            print(gt.shape, obs.shape)
+        for i, batch in tqdm(zip(range(num_test_images),dataset.test_dataloader()), 
+                         total=num_test_images):
+        
+            gt, obs, text = batch
             obs = obs.to('cuda')
             upsample = torch.nn.Upsample(size=gt.shape[2:], mode='nearest')
 
