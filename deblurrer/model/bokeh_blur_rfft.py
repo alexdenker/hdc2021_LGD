@@ -8,7 +8,7 @@ class BokehBlur(nn.Module):
     def __init__(self, r=500., shape=(1460, 2360)):
         super(BokehBlur, self).__init__()
 
-        self.r = torch.nn.parameter.Parameter(torch.tensor(r).float(), requires_grad=True)
+        self.r = torch.nn.parameter.Parameter(torch.tensor(r).float(), requires_grad=False)
         self.shape = shape
 
         kx, ky = torch.meshgrid(torch.arange(-self.shape[0]//2, self.shape[0]//2),
@@ -94,11 +94,11 @@ class BokehBlur(nn.Module):
 
 if __name__ == "__main__":
 
-    forward_model = BokehBlur(r=69.)
+    forward_model = BokehBlur(r=65.)
 
     from hdc2021_challenge.utils.data_util import load_calibration_images, load_data
     import matplotlib.pyplot as plt 
-    step=9
+    step=10
     x, y = load_data('Verdana',step)
     x = x[0,:,:]/65535.
     y = y[0,:,:]/65535.
@@ -134,15 +134,16 @@ if __name__ == "__main__":
     from hdc2021_challenge.forward_model.AnisotropicDiffusion import PeronaMalik
     perona_malik = PeronaMalik(kappa=0.03)
 
-    lamb = 1/(torch.max(torch.abs(forward_model.get_filter()))**2*6)
+    lamb = 1/(torch.max(torch.abs(forward_model.get_filter()))**2*20)
     xk = torch.zeros_like(x_torch)
     print(lamb)
     with torch.no_grad():
         for i in range(501):
             #xk = xk - lamb*forward_model.grad(xk, y_torch).real + 0.1*lamb*perona_malik(xk)
-            #pm = perona_malik(xk)
-            xk = xk - lamb*forward_model.grad(xk, y_torch) #+ 0.05*lamb*pm
-            if i % 50 == 0:
+            pm = perona_malik(xk)
+            #xk = xk - lamb*forward_model.grad(xk, y_torch) #+ 0.05*lamb*pm#
+            xk = xk - lamb*forward_model.wiener_filter(forward_model.forward(xk) - y_torch) + 0.05*lamb*pm
+            if i % 10 == 0:
                 print(i)
                 fig, (ax1, ax2, ax3) = plt.subplots(1,3, sharex=True, sharey=True)
 
@@ -157,8 +158,7 @@ if __name__ == "__main__":
 
                 fig.suptitle("Blurring Step: " + str(step))
                 plt.savefig("GD_{}.png".format(i))
-                plt.close()
-                #plt.show()
+                plt.show()
     """
     optim = torch.optim.Adam(forward_model.parameters(), lr=0.01)
 
