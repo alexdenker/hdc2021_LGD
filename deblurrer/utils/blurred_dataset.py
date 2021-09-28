@@ -260,14 +260,14 @@ class ConcatBlurredDataModule(BlurredDataModule):
         transform_emnist = transforms.Compose(
                 [#transforms.Grayscale(), 
                 transforms.ToTensor(), 
-                transforms.Resize(size=(181, 294)),
+                #transforms.Resize(size=(181, 294)),
                 transforms.RandomInvert(p=0.5),
                 transforms.RandomVerticalFlip(p=0.5)])
 
         transform_stl10 = transforms.Compose(
                 [transforms.Grayscale(), 
                 transforms.ToTensor(), 
-                transforms.Resize(size=(181, 294)),
+                #transforms.Resize(size=(181, 294)),
                 transforms.RandomInvert(p=0.5)])
 
         # Assign train/val datasets for use in dataloaders
@@ -316,8 +316,10 @@ class BlurredDataset(Dataset):
         
         if self.transform: 
             # X, Y have datatype np.uint16 (Unsigned integer (0 to 65535)) - simply divide by 65535
-            x = transforms.functional.normalize(x, mean=[0], std=[65535])
-            y = transforms.functional.normalize(y, mean=[0], std=[65535])
+            #x = transforms.functional.normalize(x, mean=[0], std=[65535])
+            #y = transforms.functional.normalize(y, mean=[0], std=[65535])
+            x = (x - torch.min(x))/(torch.max(x) - torch.min(x))
+            y = (y - torch.min(y))/(torch.max(y) - torch.min(y))
 
         return (x,y, self.subset[index][2])
         
@@ -350,9 +352,10 @@ class BlurredTextDataset(Dataset):
         text = self.true_text[index]
         if self.transform: 
             # X, Y have datatype np.uint16 (Unsigned integer (0 to 65535)) - simply divide by 65535
-            x = transforms.functional.normalize(x, mean=[0], std=[65535])
-            y = transforms.functional.normalize(y, mean=[0], std=[65535])
-
+            #x = transforms.functional.normalize(x, mean=[0], std=[65535])
+            #y = transforms.functional.normalize(y, mean=[0], std=[65535])
+            x = (x - torch.min(x))/(torch.max(x) - torch.min(x))
+            y = (y - torch.min(y))/(torch.max(y) - torch.min(y))
         return (x,y, text)
         
     def __len__(self):
@@ -405,10 +408,16 @@ if __name__ == "__main__":
 
     for idx, batch in enumerate(dataset.train_dataloader()):
         print(idx, len(batch))
-        print(len(batch[0]), len(batch[1]), len(batch[2]))
-        print(batch[0][0].shape)
-        fig, (ax1, ax2) = plt.subplots(1,2)
-        ax1.imshow(batch[1][0][0,0,:,:])
+        x, y, text = batch[0]
+        print(text)
+        print(torch.min(x), torch.max(x))
+        print(torch.min(y), torch.max(y))
+        fig, axes = plt.subplots(2,2, sharex=True, sharey=True)
+
+        axes[0,0].imshow(x[0,0,:,:], cmap="gray")
+        axes[0,1].imshow(y[0,0,:,:], cmap="gray")
+
+        axes[1,0].imshow(x[1,0,:,:], cmap="gray")
+        axes[1,1].imshow(y[1,0,:,:], cmap="gray")
         plt.show()
-        
         break
