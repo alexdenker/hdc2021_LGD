@@ -1,4 +1,4 @@
-# hdc2021_LGD
+# hdc2021_LGD (In Progress)
 Our submission for the HDC2021. 
 
 ## Install 
