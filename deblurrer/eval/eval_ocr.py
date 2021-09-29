@@ -75,7 +75,7 @@ def evaluateImage(img, trueText):
         return float(score)
 
 
-for step in range(5, 20):
+for step in range(0, 20):
     print("Eval OCR for step ", step)
     print("--------------------------------\n")
     save_report = True 

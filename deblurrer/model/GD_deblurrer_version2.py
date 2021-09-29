@@ -236,9 +236,9 @@ class IterativeReconstructor(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-5)#self.lr)
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=0.9)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.95)
         # initial lr = 0.001
         # after epoch 10: lr = 0.0009
         # after epoch 20: lr = 0.00081

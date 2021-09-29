@@ -1,6 +1,6 @@
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
 import pytorch_lightning as pl
 
@@ -10,7 +10,7 @@ from pytorch_lightning import loggers as pl_loggers
 
 
 from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule, ConcatBlurredDataModule
-from deblurrer.model.GD_deblurrer_version2 import IterativeReconstructor
+from deblurrer.model.GD_simple_deblurrer import IterativeReconstructor
 
 # for downsampling_factor 8 (steps = 3)
 radius_dict = {
@@ -62,7 +62,7 @@ kappa_dict = {
 
 
 
-for step in [9]:
+for step in [6, 8, 9]:
 #step = 2
     print("Start Training step: ", step)
     dataset = ConcatBlurredDataModule(batch_size=8, blurring_step=step)#BlurredDataModule(batch_size=8, blurring_step=step)
@@ -94,7 +94,7 @@ for step in [9]:
     )
 
 
-    base_path = '/localdata/AlexanderDenker/deblurring_experiments/run_31'
+    base_path = '/localdata/AlexanderDenker/deblurring_experiments/run_simple'
     blurring_step = "step_" + str(step)
     path_parts = [base_path, blurring_step]
     log_dir = os.path.join(*path_parts)
@@ -117,54 +117,17 @@ for step in [9]:
 
 
     reconstructor = IterativeReconstructor(radius=radius_dict[step], 
-                                            n_memory=5, 
-                                            n_iter=8, 
+                                            n_iter=10, 
                                             downsampling_steps=3,
                                             channels=[32, 64, 128, 256], 
                                             skip_channels=[16,16,16,64], 
                                             regularization='pm', # 'pm' 
-                                            use_sigmoid=True, 
+                                            use_sigmoid=False, 
                                             jittering_std=0.01, 
                                             loss='l2', 
                                             kappa_wiener=kappa_dict[step], 
-                                            op_init=None,
-                                            op_filtered='wiener')
+                                            op_init=None)
 
-    # try to resume training
-    identifier = 'val_ocr'
+    trainer = pl.Trainer(max_epochs=800, **trainer_args)
 
-    version = "version_1"
-    path_parts = [base_path, blurring_step, 'default',
-                version, 'checkpoints']
-    chkp_path = os.path.join(*path_parts)
-    
-    def search_for_file(chkp_path, identifier):
-        for ckpt_file in os.listdir(chkp_path):
-            if identifier in ckpt_file:
-                return ckpt_file
-
-    if not os.path.exists(chkp_path):
-        print("File not found: ", chkp_path)
-        trainer = pl.Trainer(max_epochs=800, **trainer_args)
-
-        trainer.fit(reconstructor, datamodule=dataset)
-    else: 
-        chkp_name = search_for_file(chkp_path, identifier)
-        if chkp_name is None:
-            print("No checkpint found...")
-            trainer = pl.Trainer(max_epochs=800, **trainer_args)
-
-            trainer.fit(reconstructor, datamodule=dataset)
-        else: 
-
-            chkp_path = os.path.join(chkp_path, chkp_name)
-            print("Resume Training. Load from ",chkp_path)
-            trainer = pl.Trainer(max_epochs=800, resume_from_checkpoint=chkp_path, **trainer_args)
-
-            trainer.fit(reconstructor, datamodule=dataset)
-
-
-
-    #trainer = pl.Trainer(max_epochs=800, resume_from_checkpoint=, **trainer_args)
-
-    #trainer.fit(reconstructor, datamodule=dataset)
+    trainer.fit(reconstructor, datamodule=dataset)

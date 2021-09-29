@@ -1,7 +1,7 @@
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 from pathlib import Path
 from tqdm import tqdm
 
@@ -17,12 +17,9 @@ import numpy as np
 from skimage.transform import resize
 
 from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule, ConcatBlurredDataModule
-from deblurrer.model.GD_deblurrer_version2 import IterativeReconstructor
+#from deblurrer.model.GD_deblurrer_version2 import IterativeReconstructor
+from deblurrer.model.GD_simple_deblurrer import IterativeReconstructor
 from deblurrer.utils import data_util
-
-
-from dival.util.plot import plot_images
-
 
 
 from dival.util.plot import plot_images
@@ -85,14 +82,15 @@ def evaluateImage(img, trueText):
 for step in range(20):
     print("Deblurring for step ", step)
 
+
     base_path = "/localdata/AlexanderDenker/deblurring_experiments"
     experiment_name = 'step_' + str(step)  
-    version = 'version_4'
+    version = 'version_0'
 
-    identifier = "last"
+    identifier = "val_ocr"
 
 
-    path_parts = [base_path, 'run_31', experiment_name, 'default',
+    path_parts = [base_path, 'run_simple', experiment_name, 'default',
                 version, 'checkpoints']
     chkp_path = os.path.join(*path_parts)
     
@@ -113,12 +111,12 @@ for step in range(20):
     chkp_path = os.path.join(chkp_path, chkp_name)
     print("Load from ",chkp_path)
 
+
     dataset = BlurredDataModule(batch_size=1, blurring_step=step)
     dataset.prepare_data()
     dataset.setup()
 
     num_test_images = len(dataset.test_dataloader())
-
 
     #reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
     reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)

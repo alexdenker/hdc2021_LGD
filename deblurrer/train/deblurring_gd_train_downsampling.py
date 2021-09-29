@@ -73,7 +73,7 @@ trainer_args = {'accelerator': 'ddp',
                 #'accumulate_grad_batches': 6}#,}
                 # 'log_gpu_memory': 'all'} # might slow down performance (unnecessary uses only the output of nvidia-smi)
 
-reconstructor = IterativeReconstructor(radius=radius_dict[step], n_memory=4, n_iter=9, channels=[32,64, 128, 256], skip_channels=[16,32,32,64], img_shape=(181, 294), regularization=None)
+reconstructor = IterativeReconstructor(radius=radius_dict[step], n_memory=4, n_iter=9, channels=[32,64, 128, 256], skip_channels=[16,32,32,64], img_shape=(181, 295), regularization=None)
 
 trainer = pl.Trainer(max_epochs=200, **trainer_args)
 
