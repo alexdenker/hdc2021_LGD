@@ -24,9 +24,9 @@ We want to reconstruct the original image <a href="https://www.codecogs.com/eqne
 
 <a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" title="g_\eta = \mathcal{A} f + \eta" /></a>
 
-Our goal is to define an reconstructor $\mathcal{R}_\Theta : X \rightarrow X$ which produces an unblurred image from the blurred $g_\eta$:
+Our goal is to define an reconstructor <a href="https://www.codecogs.com/eqnedit.php?latex=\mathcal{R}_\Theta&space;:&space;X&space;\rightarrow&space;X" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathcal{R}_\Theta&space;:&space;X&space;\rightarrow&space;X" title="\mathcal{R}_\Theta : X \rightarrow X" /></a> which produces an unblurred image from the blurred <a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta" title="g_\eta" /></a>:
 
-$$ f \approx \mathcal{R}_\Theta (g_\eta)$$
+<a href="https://www.codecogs.com/eqnedit.php?latex=f&space;\approx&space;\mathcal{R}_\Theta&space;(g_\eta)" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f&space;\approx&space;\mathcal{R}_\Theta&space;(g_\eta)" title="f \approx \mathcal{R}_\Theta (g_\eta)" /></a>
 
 
 Our approach is inspired by the recent trend of combining physical forward models  and learned iterative schemes [(Adler et. al.)](https://arxiv.org/abs/1704.04058). There is also experimental evidence that this approach can work well even with an approximated forward model [(Hauptmann et. al.)](https://arxiv.org/abs/1807.03191).
@@ -40,14 +40,10 @@ This approach is repeated for every step. The same training setup and neural net
 
 For a fixed blurring level the out-of-focus blur can be modeled by as a linear, position invariant convolution with a circular point-spread-function: 
 
-$$ g_\eta = \mathcal{A} f + \eta = k * f + \eta $$
-
+<a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta&space;=&space;k&space;*&space;f&space;&plus;&space;\eta" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta&space;=&space;k&space;*&space;f&space;&plus;&space;\eta" title="g_\eta = \mathcal{A} f + \eta = k * f + \eta" /></a>
 with 
 
-$$ k(x) =  \left\{\begin{array}{lr}
-        \frac{1}{\pi r^2}, & \text{for } \| x \|^2 \le r^2\\
-        0, & \text{else }
-        \end{array}\right\} $$
+<a href="https://www.codecogs.com/eqnedit.php?latex=k(x)&space;=&space;\left\{\begin{array}{lr}&space;\frac{1}{\pi&space;r^2},&space;&&space;\text{for&space;}&space;\|&space;x&space;\|^2&space;\le&space;r^2\\&space;0,&space;&&space;\text{else&space;}&space;\end{array}\right\}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?k(x)&space;=&space;\left\{\begin{array}{lr}&space;\frac{1}{\pi&space;r^2},&space;&&space;\text{for&space;}&space;\|&space;x&space;\|^2&space;\le&space;r^2\\&space;0,&space;&&space;\text{else&space;}&space;\end{array}\right\}" title="k(x) = \left\{\begin{array}{lr} \frac{1}{\pi r^2}, & \text{for } \| x \|^2 \le r^2\\ 0, & \text{else } \end{array}\right\}" /></a>
 
 This model works well for small blurring levels. For higher blurring levels the average error between the approximate model and the real measurements gets bigger. 
 
@@ -55,19 +51,19 @@ This model works well for small blurring levels. For higher blurring levels the 
 
 Variational methods try to recover the original image as the minimizer of an objective function 
 
-$$ \hat{f} = \mathcal{R}_\Theta(g\eta) \in \argmin_f d(\mathcal{A}f, g_\eta) + \lambda R(f) $$
+<a href="https://www.codecogs.com/eqnedit.php?latex=\hat{f}&space;=&space;\mathcal{R}_\Theta(g\eta)&space;\in&space;\arg&space;\min_f&space;d(\mathcal{A}f,&space;g_\eta)&space;&plus;&space;\lambda&space;R(f)" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\hat{f}&space;=&space;\mathcal{R}_\Theta(g\eta)&space;\in&space;\arg&space;\min_f&space;d(\mathcal{A}f,&space;g_\eta)&space;&plus;&space;\lambda&space;R(f)" title="\hat{f} = \mathcal{R}_\Theta(g\eta) \in \arg \min_f d(\mathcal{A}f, g_\eta) + \lambda R(f)" /></a>
 
-where $d:X\times X \rightarrow \mathbb{R}$ is a data fidelity term and $R:X \rightarrow \mathbb{R}$ is a regularizer. In many examples, the regularizer is convex but not differentiable (e.g. TV or l1). In these cases proximal gradient descent can be used to obtain the minimizer: 
+where <a href="https://www.codecogs.com/eqnedit.php?latex=d:X\times&space;X&space;\rightarrow&space;\mathbb{R}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?d:X\times&space;X&space;\rightarrow&space;\mathbb{R}" title="d:X\times X \rightarrow \mathbb{R}" /></a> is a data fidelity term and <a href="https://www.codecogs.com/eqnedit.php?latex=R:X&space;\rightarrow&space;\mathbb{R}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?R:X&space;\rightarrow&space;\mathbb{R}" title="R:X \rightarrow \mathbb{R}" /></a> is a regularizer. In many examples, the regularizer is convex but not differentiable (e.g. TV or l1). In these cases proximal gradient descent can be used to obtain the minimizer: 
 
-$$ f_{k+1} = \text{prox}_{\lambda R}(f_k - \gamma \nabla d(\mathcal{A}f_k, g_\eta)) $$
+<a href="https://www.codecogs.com/eqnedit.php?latex=f_{k&plus;1}&space;=&space;\text{prox}_{\lambda&space;R}(f_k&space;-&space;\gamma&space;\nabla&space;d(\mathcal{A}f_k,&space;g_\eta))" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{k&plus;1}&space;=&space;\text{prox}_{\lambda&space;R}(f_k&space;-&space;\gamma&space;\nabla&space;d(\mathcal{A}f_k,&space;g_\eta))" title="f_{k+1} = \text{prox}_{\lambda R}(f_k - \gamma \nabla d(\mathcal{A}f_k, g_\eta))" /></a>
 
-with a step size $\gamma > 0$. The idea of learned iterative methods is to unroll this iteration for a fixed number of steps and replace the proximal mapping with a convolutional neural network: 
+with a step size <a href="https://www.codecogs.com/eqnedit.php?latex=\gamma&space;>&space;0" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\gamma&space;>&space;0" title="\gamma > 0" /></a>. The idea of learned iterative methods is to unroll this iteration for a fixed number of steps and replace the proximal mapping with a convolutional neural network: 
 
-$$ f_{k+1} = \Lambda_{\theta_k}(f_k, \nabla d(\mathcal{A}f_k, g_\eta)) \qquad \text{ for } k=0,\dots, K-1 $$
+<a href="https://www.codecogs.com/eqnedit.php?latex=f_{k&plus;1}&space;=&space;\Lambda_{\theta_k}(f_k,&space;\nabla&space;d(\mathcal{A}f_k,&space;g_\eta))&space;\qquad&space;\text{&space;for&space;}&space;k=0,\dots,&space;K-1" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{k&plus;1}&space;=&space;\Lambda_{\theta_k}(f_k,&space;\nabla&space;d(\mathcal{A}f_k,&space;g_\eta))&space;\qquad&space;\text{&space;for&space;}&space;k=0,\dots,&space;K-1" title="f_{k+1} = \Lambda_{\theta_k}(f_k, \nabla d(\mathcal{A}f_k, g_\eta)) \qquad \text{ for } k=0,\dots, K-1" /></a>
 
-We use the $K$-th iterate as the final reconstruction $\mathcal{R}_\Theta(g_\eta) = f_K$. The mappings $\Lambda_{\theta_k}: X \times X \rightarrow X$ are implemted as convolutional UNets. The parameter $\Theta$ includes all parameters of all subnetworks, i.e. $\Theta = (\theta_0, \dots)$. We split the provided data into a training, validation and test part. We train our learned iterative method by minimizing the mean squared error between the reconstruction and the groundtruth model on the training set:
+We use the $K$-th iterate as the final reconstruction <a href="https://www.codecogs.com/eqnedit.php?latex=\mathcal{R}_\Theta(g_\eta)&space;=&space;f_K" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathcal{R}_\Theta(g_\eta)&space;=&space;f_K" title="\mathcal{R}_\Theta(g_\eta) = f_K" /></a>. The mappings <a href="https://www.codecogs.com/eqnedit.php?latex=\Lambda_{\theta_k}:&space;X&space;\times&space;X&space;\rightarrow&space;X" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\Lambda_{\theta_k}:&space;X&space;\times&space;X&space;\rightarrow&space;X" title="\Lambda_{\theta_k}: X \times X \rightarrow X" /></a> are implemted as convolutional UNets. The parameter $\Theta$ includes all parameters of all subnetworks, i.e. \Theta = (\theta_0, \dots). We split the provided data into a training, validation and test part. We train our learned iterative method by minimizing the mean squared error between the reconstruction and the groundtruth model on the training set:
 
-$$ \hat{\Theta} \in \argmin_\Theta \frac{1}{n} \sum_{i=1}^n \| \mathcal{R}_\Theta(g_\eta) - f \|_2^2  $$
+<a href="https://www.codecogs.com/eqnedit.php?latex=\hat{\Theta}&space;\in&space;\arg&space;\min_\Theta&space;\frac{1}{n}&space;\sum_{i=1}^n&space;\|&space;\mathcal{R}_\Theta(g_\eta)&space;-&space;f&space;\|_2^2" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\hat{\Theta}&space;\in&space;\arg&space;\min_\Theta&space;\frac{1}{n}&space;\sum_{i=1}^n&space;\|&space;\mathcal{R}_\Theta(g_\eta)&space;-&space;f&space;\|_2^2" title="\hat{\Theta} \in \arg \min_\Theta \frac{1}{n} \sum_{i=1}^n \| \mathcal{R}_\Theta(g_\eta) - f \|_2^2" /></a>
 
 Here, the mean square error served us as a proxy for the real goal: high accuracy for character recognition.
 
@@ -81,7 +77,7 @@ We tried our own sanity check on images from the [STL10 dataset](https://cs.stan
 
 It was clear, that our initial model would not pass the sanity check.
 
-Due to the sanity check, we have a kind of constrained optimization problem. Maximize the OCR accuracy under the constraint that we have a slight beblurring effect on natural images. In order to tackle this problem, we used a combined training of the provided challenge data with STL10 images. For every training step we checked if the PSNR between the reconstruction $\mathcal{R}(g_{STL10})$ and the unblurred image $f_{STL10}$ was lower than the PSNR btween the blurred image $g_{STL10}$ and the unblurred image $f_{STL10}$. If our reconstruction was more than $2$dB lower in terms of PSNR than the blurred image we added one STL10 image to the current training batch. 
+Due to the sanity check, we have a kind of constrained optimization problem. Maximize the OCR accuracy under the constraint that we have a slight beblurring effect on natural images. In order to tackle this problem, we used a combined training of the provided challenge data with STL10 images. For every training step we checked if the PSNR between the reconstruction <a href="https://www.codecogs.com/eqnedit.php?latex=\mathcal{R}(g_{STL10})" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathcal{R}(g_{STL10})" title="\mathcal{R}(g_{STL10})" /></a> and the unblurred image <a href="https://www.codecogs.com/eqnedit.php?latex=f_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{STL10}" title="f_{STL10}" /></a> was lower than the PSNR btween the blurred image <a href="https://www.codecogs.com/eqnedit.php?latex=g_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_{STL10}" title="g_{STL10}" /></a> and the unblurred image <a href="https://www.codecogs.com/eqnedit.php?latex=f_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{STL10}" title="f_{STL10}" /></a>. If our reconstruction was more than $2$dB lower in terms of PSNR than the blurred image we added one STL10 image to the current training batch. 
 
 
 ## Examples
