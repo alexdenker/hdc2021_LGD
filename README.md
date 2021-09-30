@@ -80,7 +80,7 @@ We tried our own sanity check on images from the [STL10 dataset](https://cs.stan
 
 It was clear, that our initial model would not pass the sanity check.
 
-Due to the sanity check, we have a kind of constrained optimization problem. Maximize the OCR accuracy under the constrained that we have a slight beblurring effect on natural images. In order to tackle this problem, we used a combined training of the provided challenge data with STL10 images. For every training step we checked if the PSNR between the reconstruction $\mathcal{R}(g_{STL10})$ and the unblurred image $f_{STL10}$ was lower than the PSNR btween the blurred image $g_{STL10}$ and the unblurred image $f_{STL10}$. If our reconstruction was more than $2$dB lower in terms of PSNR than the blurred image we added one STL10 image to the current training batch. 
+Due to the sanity check, we have a kind of constrained optimization problem. Maximize the OCR accuracy under the constraint that we have a slight beblurring effect on natural images. In order to tackle this problem, we used a combined training of the provided challenge data with STL10 images. For every training step we checked if the PSNR between the reconstruction $\mathcal{R}(g_{STL10})$ and the unblurred image $f_{STL10}$ was lower than the PSNR btween the blurred image $g_{STL10}$ and the unblurred image $f_{STL10}$. If our reconstruction was more than $2$dB lower in terms of PSNR than the blurred image we added one STL10 image to the current training batch. 
 
 
 ## Examples
