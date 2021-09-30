@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os 
 import numpy as np 
 from model.GD_deblurrer_downsampling import IterativeReconstructor
+from deblurrer.model.upsampling_net import UpsamplingNet
 
 parser = argparse.ArgumentParser(description='Apply Deblurrer to every image in a directory.')
 
@@ -22,18 +23,18 @@ def main(input_files, output_files, step):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # load model 
-    base_path = os.path.join(os.path.dirname(__file__), 'weights')
+    base_path = os.path.join(os.path.dirname(__file__), 'hdc2021_weights')
     experiment_name = 'step_' + str(step)  
-    version = 'version_0'
-    chkp_name = 'learned_gradient_descent'
-    path_parts = [base_path, experiment_name, 'default',
-                version, 'checkpoints', chkp_name + '.ckpt']
+    path_parts = [base_path, experiment_name, 'checkpoints',  'learned_gradient_descent.ckpt']
     chkp_path = os.path.join(*path_parts)
     #reconstructor = IterativeReconstructor(radius=42, n_memory=2, n_iter=13, channels=[4,4, 8, 8, 16], skip_channels=[4,4,8,8,16])
     reconstructor = IterativeReconstructor.load_from_checkpoint(chkp_path)
     reconstructor.to(device)
 
-    upsample = torch.nn.Upsample(size=(1460, 2360), mode='nearest')
+    upsampling_model = UpsamplingNet(in_ch=1, hidden_ch=32, out_ch=1)
+    upsampling_model.load_state_dict(torch.load('upsampling_model.pt')) # TODO
+    upsampling_model.to("cuda")
+
 
     for f in os.listdir(input_files):
         if f.endswith("tif"):
