@@ -1,4 +1,4 @@
-# hdc2021_LGD (In Progress)
+# hdc2021_LGD
 Our submission for the HDC2021. 
 
 ## Install 
@@ -8,7 +8,8 @@ Install the package using:
 ```
 pip install -e .
 ```
-Make sure to have git-lfs installed to pull the weight files for the model.
+
+The neural networks weights can be downloaded using this link: https://seafile.zfn.uni-bremen.de/d/c19be19f1f134c0d8ad2/. Afterwards move all weights to *deblurrer/*, i.e. folder structure *deblurrer/hdc2021_weights/step_i* for each step i=0,...,19.
 
 ## Usage 
 
@@ -79,8 +80,26 @@ It was clear, that our initial model would not pass the sanity check.
 
 Due to the sanity check, we have a kind of constrained optimization problem. Maximize the OCR accuracy under the constraint that we have a slight beblurring effect on natural images. In order to tackle this problem, we used a combined training of the provided challenge data with STL10 images. For every training step we checked if the PSNR between the reconstruction <a href="https://www.codecogs.com/eqnedit.php?latex=\mathcal{R}(g_{STL10})" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathcal{R}(g_{STL10})" title="\mathcal{R}(g_{STL10})" /></a> and the unblurred image <a href="https://www.codecogs.com/eqnedit.php?latex=f_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{STL10}" title="f_{STL10}" /></a> was lower than the PSNR btween the blurred image <a href="https://www.codecogs.com/eqnedit.php?latex=g_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_{STL10}" title="g_{STL10}" /></a> and the unblurred image <a href="https://www.codecogs.com/eqnedit.php?latex=f_{STL10}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f_{STL10}" title="f_{STL10}" /></a>. If our reconstruction was more than 2dB lower in terms of PSNR than the blurred image we added one STL10 image to the current training batch. 
 
+### Down- and Upsampling
+
+The large image size *1460x2360* the usage of large deep learning approaches is limited. There are ways around it, i.e. use invertible neural networks or checkpointing. We tackle this problem by simply downsample the original images to *181x294* (about 8 times downsampling). This was motivated by the fact, that the target area on the e-ink display has a resolution of *200x300*. Downsampling was performed using an average filter. All learned iterative networks were trained on this downsampled images. The final upsampling is performed by a small convolutional neural network, consiting of bilinear upsampling layers and a few convolutional layers. 
+
 
 ## Examples
+
+![Example for step 5 (test data)](images_readme/example_step_5.png "step 5")
+
+*Figure: Example for step 5 (test data).*
+
+![Example for step 5 (test data)](images_readme/example_step_6.png "step 6")
+
+*Figure: Example for step 6 (test data).*
+
+![Example for step 5 (test data)](images_readme/example_step_8.png "step 8")
+
+*Figure: Example for step 8 (test data).*
+
+
 
 ## Requirements 
 

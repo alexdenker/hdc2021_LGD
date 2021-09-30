@@ -1,6 +1,6 @@
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import pytorch_lightning as pl
 
@@ -10,7 +10,7 @@ from pytorch_lightning import loggers as pl_loggers
 
 
 from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule, ConcatBlurredDataModule
-from deblurrer.model.GD_deblurrer_version2 import IterativeReconstructor
+from deblurrer.model.GD_deblurrer import IterativeReconstructor
 
 # for downsampling_factor 8 (steps = 3)
 radius_dict = {
@@ -62,7 +62,7 @@ kappa_dict = {
 
 
 
-for step in [9]:
+for step in [13, 18, 19]:
 #step = 2
     print("Start Training step: ", step)
     dataset = ConcatBlurredDataModule(batch_size=8, blurring_step=step)#BlurredDataModule(batch_size=8, blurring_step=step)
@@ -133,7 +133,7 @@ for step in [9]:
     # try to resume training
     identifier = 'val_ocr'
 
-    version = "version_1"
+    version = "version_0"
     path_parts = [base_path, blurring_step, 'default',
                 version, 'checkpoints']
     chkp_path = os.path.join(*path_parts)

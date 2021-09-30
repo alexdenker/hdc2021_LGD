@@ -2,7 +2,7 @@
 learned iterative deblurrer
 
 """
-
+from math import ceil
 
 import pytorch_lightning as pl
 
@@ -15,7 +15,6 @@ import torchvision
 
 
 from deblurrer.model.UNet import UNet
-#from dival.reconstructors.networks.unet import UNet
 from deblurrer.model.bokeh_blur_rfft import BokehBlur
 from deblurrer.model.AnisotropicDiffusion import PeronaMalik
 from deblurrer.utils.ocr import evaluateImage
@@ -25,7 +24,7 @@ import random
 
 
 class IterativeReconstructor(pl.LightningModule):
-    def __init__(self, lr=1e-4, n_iter=8, n_memory=5, 
+    def __init__(self, lr=1e-4, downsampling_steps=3, n_iter=8, n_memory=5, 
                  batch_norm=True,channels=[2,4, 8, 16, 16], skip_channels=[2,4,8,16,16], radius=5.5, img_shape=(1460, 2360), kappa=0.03, 
                  regularization='pm', use_sigmoid=True, jittering_std=0.0, loss="l1", op_init=None, kappa_wiener=0.0, op_filtered=None):
         super().__init__()
@@ -39,7 +38,6 @@ class IterativeReconstructor(pl.LightningModule):
         self.channels = self.hparams.channels
         self.skip_channels = self.hparams.skip_channels
         self.radius = self.hparams.radius
-        self.img_shape = self.hparams.img_shape
         self.kappa = self.hparams.kappa
         self.regularization = self.hparams.regularization
         self.use_sigmoid = self.hparams.use_sigmoid
@@ -48,10 +46,14 @@ class IterativeReconstructor(pl.LightningModule):
         self.op_init = self.hparams.op_init 
         self.kappa_wiener = self.hparams.kappa_wiener
         self.op_filtered = self.hparams.op_filtered
+        self.downsampling_steps = self.hparams.downsampling_steps
 
-        self.downsampling = Downsampling(steps=3)
+        self.downsampling = Downsampling(steps=self.downsampling_steps)
 
-        self.blur = BokehBlur(r=self.radius, shape=self.img_shape)
+        #self.img_shape = (ceil(1460 / 2**self.downsampling_steps), ceil(2360 / 2**self.downsampling_steps))
+        self.img_shape = (181, 294)
+        self.blur = BokehBlur(r=self.radius, shape=self.img_shape, kappa=self.kappa)
+
         if self.regularization == 'pm':
             op_reg = PeronaMalik(kappa=self.kappa)
         else:
@@ -59,12 +61,12 @@ class IterativeReconstructor(pl.LightningModule):
 
 
         if self.op_init == 'wiener':
-            op_init = lambda x : self.blur.wiener_filter(x, kappa=self.kappa_wiener)
+            op_init = self.blur.wiener_filter
         else:
             op_init = None
 
         if self.op_filtered is not None: 
-            op_filtered = lambda x : self.blur.wiener_filter(x, kappa=self.kappa_wiener)
+            op_filtered = self.blur.wiener_filter
         else:
             op_filtered = None            
 
@@ -74,16 +76,20 @@ class IterativeReconstructor(pl.LightningModule):
 
 
     def my_data_augmentation(self, image, blurred_image):
-        if random.random() > 0.75:
+        if random.random() > 0.8:
             image = TF.hflip(image)
             blurred_image = TF.hflip(blurred_image)
-        if random.random() > 0.75: 
+        if random.random() > 0.8: 
             image = TF.vflip(image)
             blurred_image = TF.vflip(blurred_image)        
         if random.random() > 0.9: 
             image = TF.invert(image)
             blurred_image = TF.invert(blurred_image)
         return image, blurred_image
+
+    def resize_image(self, image):
+        image = TF.resize(image, size=self.img_shape)
+        return image 
 
 
     def forward(self, y):
@@ -103,22 +109,7 @@ class IterativeReconstructor(pl.LightningModule):
         x, y = self.my_data_augmentation(x, y)
 
         x_hat = self.net(y) 
-        """
-        if batch_idx == 0:
-            import matplotlib.pyplot as plt 
-            import datetime
-            fig, (ax1, ax2, ax3) = plt.subplots(1,3)
 
-            ax1.imshow(x.detach().cpu()[0,0,:,:])
-            ax1.set_title("x")
-            ax2.imshow(y.detach().cpu()[0,0,:,:])
-            ax2.set_title("y")
-            ax3.imshow(x_hat.detach().cpu()[0,0,:,:])
-            ax3.set_title("x hat")
-
-
-            plt.savefig("train_img_{}.png".format(datetime.datetime.now().strftime('%s'))) 
-        """
 
         if self.loss == 'l1':
             l1_loss = torch.nn.L1Loss()
@@ -128,27 +119,30 @@ class IterativeReconstructor(pl.LightningModule):
             loss = 0.5*l1_loss(x_hat, x) + 0.5*F.mse_loss(x_hat, x)
         else: 
             loss = F.mse_loss(x_hat, x)
-        
 
-        if random.random() > 0.6:
-            #for i in range(1, len(batch)):
-            #    x, _ = batch[i]
-            x, _ = batch[-1]
-            x = x[0:2, ...]
 
-            y = self.blur(x)
+        x, _ = batch[-1]
+        x = x[0:1, ...]
+        x = self.resize_image(x)
+        y = self.blur(x)
 
-            if self.jittering_std > 0:
-                y = y + torch.randn(y.shape,device=self.device)*self.jittering_std
-                x = x + torch.randn(x.shape,device=self.device)*self.jittering_std
+        if self.jittering_std > 0:
+            y = y + torch.randn(y.shape,device=self.device)*self.jittering_std
+            x = x + torch.randn(x.shape,device=self.device)*self.jittering_std
 
-            x_hat = self.net(y) 
-        
-            loss = loss +  0.1 * F.mse_loss(x_hat, x)
+        x_hat = self.net(y) 
+        # PSNR(x_hat, x) - PSNR(y, x) > 2dB
+        psnr_diff = -10*torch.log10(F.mse_loss(x_hat, x)) + 10*torch.log10(F.mse_loss(y, x))
+        if psnr_diff < 2:
+            loss = loss +  F.mse_loss(x_hat, x)
+        #    loss /= batch[0][0].shape[0] + 1
+        #else:
+        #    loss /= batch[0][0].shape[0]
         
         # Logging to TensorBoard by default
         self.log('train_loss', loss)
-        
+        self.log('psnr_diff_stl10', psnr_diff)
+
         if batch_idx == 0:
             self.last_batch = batch
 
@@ -160,6 +154,7 @@ class IterativeReconstructor(pl.LightningModule):
         x, y, text = batch
         x = self.downsampling(x)
         y = self.downsampling(y)
+
         x_hat = self.net(y) 
         
         if self.loss == 'l1':
@@ -177,21 +172,6 @@ class IterativeReconstructor(pl.LightningModule):
         x_hat = x_hat.cpu().numpy()
         x_hat = np.clip(x_hat, 0, 1)
         
-        """
-        if batch_idx == 0:
-            import matplotlib.pyplot as plt 
-            import datetime
-            fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-
-            ax1.imshow(x.detach().cpu()[0,0,:,:])
-            ax1.set_title("x")
-            ax2.imshow(y.detach().cpu()[0,0,:,:])
-            ax2.set_title("y")
-            ax3.imshow(x_hat[0,0,:,:])
-            ax3.set_title("x hat")
-
-            plt.savefig("val_img_{}.png".format(datetime.datetime.now().strftime('%s'))) 
-        """
         ocr_acc = []
         for i in range(len(text)):
             ocr_acc.append(evaluateImage(x_hat[i, 0, :, :], text[i]))
@@ -232,6 +212,8 @@ class IterativeReconstructor(pl.LightningModule):
                 "deblurred", reco_grid, global_step=self.current_epoch)
             for idx in range(1, len(self.last_batch)):
                 x, _ = self.last_batch[idx]
+                x = self.resize_image(x)
+
                 with torch.no_grad():
                     y = self.blur(x)
                     x_hat = self.net(y) 
@@ -253,9 +235,9 @@ class IterativeReconstructor(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-5)#self.lr)
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=0.9)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.95)
         # initial lr = 0.001
         # after epoch 10: lr = 0.0009
         # after epoch 20: lr = 0.00081
@@ -275,7 +257,7 @@ class Downsampling(nn.Module):
 
         self.steps = steps 
 
-        self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2)
+        self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2)#, padding=1, count_include_pad=False)
 
 
     def forward(self, x):
@@ -319,23 +301,23 @@ class IterativeDeblurringNet(nn.Module):
                 self.iterative_blocks = nn.ModuleList()
                 for it in range(n_iter):
                     self.iterative_blocks.append(IterativeDeblurringBlock(
-                        n_in=5, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                        n_in=6, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
             else: 
                 self.iterative_blocks = nn.ModuleList()
                 for it in range(n_iter):
                     self.iterative_blocks.append(IterativeDeblurringBlock(
-                        n_in=4, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                        n_in=5, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
         else: 
             if self.op_filtered is not None: 
                 self.iterative_blocks = nn.ModuleList()
                 for it in range(n_iter):
                     self.iterative_blocks.append(IterativeDeblurringBlock(
-                        n_in=4, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                        n_in=5, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
             else:
                 self.iterative_blocks = nn.ModuleList()
                 for it in range(n_iter):
                     self.iterative_blocks.append(IterativeDeblurringBlock(
-                        n_in=3, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
+                        n_in=4, n_out=1, n_memory=self.n_memory, batch_norm=batch_norm,channels=channels, skip_channels=skip_channels))
 
     def forward(self, y, it=-1):
         # current iterate
@@ -350,23 +332,26 @@ class IterativeDeblurringNet(nn.Module):
         n_iter = self.n_iter if it == -1 else min(self.n_iter, it)
         for i in range(n_iter):
             grad = self.op.grad(x_cur[:, 0:1, ...], y)
-
+            filtered_grad = self.op.filtered_grad(x_cur[:, 0:1, ...], y)
             if self.op_reg is not None: 
                 pm = self.op_reg(x_cur[:, 0:1, ...])
-                x_update = torch.cat([x_cur, grad, pm, y], dim=1)
+                x_update = torch.cat([x_cur, grad, filtered_grad, pm, y], dim=1)
+
             else:
-                x_update = torch.cat([x_cur, grad, y], dim=1)
+                x_update = torch.cat([x_cur, grad, filtered_grad, y], dim=1)
 
             if self.op_filtered is not None: 
-                x_filtered = self.op_filtered(x_cur[:, 0:1, ...])
+                x_filtered = self.op_filtered(x_cur[:, 0:1, ...]) 
                 x_update = torch.cat([x_update, x_filtered], dim=1)
 
             x_update = self.iterative_blocks[i](x_update)
             x_cur = x_cur + x_update
             #x_cur = x_cur + x_update[:, 0:1, ...]
             #s = x_update[:, 1:, ...]
-
+        
         x = x_cur[:, 0:1, ...]
+        # TODO: Learn Temperatur for sigmoid
+        #s = torch.softplus(torch.mean(x_cur[:, 1:2, ...]))
         if self.use_sigmoid:
             x = torch.sigmoid(x)
         return x

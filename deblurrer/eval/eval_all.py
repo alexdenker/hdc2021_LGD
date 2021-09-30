@@ -1,7 +1,7 @@
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 from pathlib import Path
 from tqdm import tqdm
 
@@ -17,7 +17,7 @@ import numpy as np
 from skimage.transform import resize
 
 from deblurrer.utils.blurred_dataset import BlurredDataModule, MultipleBlurredDataModule, ConcatBlurredDataModule
-from deblurrer.model.GD_deblurrer_version2 import IterativeReconstructor
+from deblurrer.model.GD_deblurrer import IterativeReconstructor
 from deblurrer.utils import data_util
 
 
@@ -82,14 +82,14 @@ def evaluateImage(img, trueText):
 
 
 
-for step in range(20):
+for step in range(4,6):
     print("Deblurring for step ", step)
 
     base_path = "/localdata/AlexanderDenker/deblurring_experiments"
     experiment_name = 'step_' + str(step)  
-    version = 'version_4'
+    version = 'version_1'
 
-    identifier = "last"
+    identifier = "val_ocr"
 
 
     path_parts = [base_path, 'run_31', experiment_name, 'default',
@@ -125,7 +125,7 @@ for step in range(20):
     reconstructor.net.eval()
     reconstructor.to("cuda")
 
-    report_name = "report_step_" + str(step) + "_model_" + identifier
+    report_name = "sharpen_report_step_" + str(step) + "_model_" + identifier
     report_path = path_parts[:-1]
     report_path.append(report_name)
     report_path = os.path.join(*report_path)
@@ -139,7 +139,7 @@ for step in range(20):
             gt, obs, text = batch
             
             obs = obs.to('cuda')
-            upsample = torch.nn.Upsample(size=gt.shape[2:], mode='bilinear') # 'nearest'
+            upsample = torch.nn.Upsample(size=gt.shape[2:], mode='bilinear') # '' nearest
 
             # create reconstruction from observation
             obs_down = reconstructor.downsampling(obs)
@@ -153,12 +153,26 @@ for step in range(20):
             #ax1.imshow(reco.cpu().numpy()[0][0], cmap="gray")
             #ax2.imshow(reco_iter.cpu().numpy()[0][0], cmap="gray")
             #plt.show()
-            reco = upsample(reco)
+            #reco = upsample(reco)
             reco = reco.cpu().numpy()
-            reco = np.clip(reco, 0, 1)
+            reco = np.clip(reco, 0, 1)[0][0]
 
-            ocr_acc.append(evaluateImage(reco[0][0], text))
+            import scipy
+            from scipy import ndimage
+            kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
 
+            sharpened = ndimage.convolve(reco, kernel)
+
+            sharpened = 1/2*reco + 1/2*sharpened
+            #ocr_acc.append(evaluateImage(sharpened, text))
+
+            import matplotlib.pyplot as plt 
+            fig, (ax1, ax2) = plt.subplots(1,2)
+            ax1.imshow(sharpened, cmap="gray")
+            ax2.imshow(reco, cmap="gray")
+            #ax1.set_title("ocr: " + str(ocr_acc[-1]))
+            plt.show()
+        """
         if i < 4:
             img_save_path = os.path.join(report_path,'img')
             Path(img_save_path).mkdir(parents=True, exist_ok=True)
@@ -187,7 +201,7 @@ for step in range(20):
                     orientation='portrait', format=None, transparent=False,
                     bbox_inches=None, pad_inches=0.1, metadata=None)
 
-
+        """
     print('---')
     print('Results:')
     print('mean ocr acc: ', np.mean(ocr_acc))
