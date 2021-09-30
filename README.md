@@ -20,7 +20,7 @@ python deblurrer/main.py path-to-input-files path-to-output-files step
 
 ## Method
 
-We want to reconstruct the original image $f \in X$ from blurred and noisy data $g_\eta \in X$. The forward operator is given by $\mathcal{A}: X \rightarrow X$. This corresponds to an inverse problem: 
+We want to reconstruct the original image <a href="https://www.codecogs.com/eqnedit.php?latex=f&space;\in&space;X" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f&space;\in&space;X" title="f \in X" /></a> from blurred and noisy data <a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta&space;\in&space;X" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta&space;\in&space;X" title="g_\eta \in X" /></a>. The forward operator is given by <a href="https://www.codecogs.com/eqnedit.php?latex=\mathcal{A}:&space;X&space;\rightarrow&space;X" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathcal{A}:&space;X&space;\rightarrow&space;X" title="\mathcal{A}: X \rightarrow X" /></a>. This corresponds to an inverse problem: 
 
 <a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" title="g_\eta = \mathcal{A} f + \eta" /></a>
 
