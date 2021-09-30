@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt 
 import os 
 import numpy as np 
-from model.GD_deblurrer_downsampling import IterativeReconstructor
+from deblurrer.model.GD_deblurrer import IterativeReconstructor
 from deblurrer.model.upsampling_net import UpsamplingNet
 
 parser = argparse.ArgumentParser(description='Apply Deblurrer to every image in a directory.')
@@ -32,14 +32,14 @@ def main(input_files, output_files, step):
     reconstructor.to(device)
 
     upsampling_model = UpsamplingNet(in_ch=1, hidden_ch=32, out_ch=1)
-    upsampling_model.load_state_dict(torch.load(os.path.join(path_parts[:-1], 'upsampling_model_step_{}.pt'.format(step))))
-    upsampling_model.to("cuda")
+    chkp_upsample_path = path_parts[:-1] + ['upsampling_model_step_{}.pt'.format(step)]
+    upsampling_model.load_state_dict(torch.load(os.path.join(*chkp_upsample_path), map_location=device))
+    upsampling_model.to(device)
 
 
     for f in os.listdir(input_files):
         if f.endswith("tif"):
-            y = np.array(Image.open(os.path.join(input_files, f))) # not blurry
-            print(y.shape)
+            y = np.array(Image.open(os.path.join(input_files, f))).astype(np.float32) # not blurry
             y = torch.from_numpy(y).float()
             y = (y - torch.min(y))/(torch.max(y) - torch.min(y))
             y = y.unsqueeze(0).unsqueeze(0)
@@ -51,7 +51,7 @@ def main(input_files, output_files, step):
                 x_hat = x_hat.cpu().numpy()
 
             im = Image.fromarray(x_hat[0][0]*255.).convert("L")
-            
+
             os.makedirs(output_files, exist_ok=True)
             im.save(os.path.join(output_files,f.split(".")[0] + ".PNG"))
 
