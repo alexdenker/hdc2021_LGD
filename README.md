@@ -21,7 +21,8 @@ python deblurrer/main.py path-to-input-files path-to-output-files step
 ## Method
 
 We want to reconstruct the original image $f \in X$ from blurred and noisy data $g_\eta \in X$. The forward operator is given by $\mathcal{A}: X \rightarrow X$. This corresponds to an inverse problem: 
-$$ g_\eta = \mathcal{A} f + \eta $$
+
+<a href="https://www.codecogs.com/eqnedit.php?latex=g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" target="_blank"><img src="https://latex.codecogs.com/gif.latex?g_\eta&space;=&space;\mathcal{A}&space;f&space;&plus;&space;\eta" title="g_\eta = \mathcal{A} f + \eta" /></a>
 
 Our goal is to define an reconstructor $\mathcal{R}_\Theta : X \rightarrow X$ which produces an unblurred image from the blurred $g_\eta$:
 
