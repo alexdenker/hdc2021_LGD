@@ -95,4 +95,4 @@ Due to the sanity check, we have a kind of constrained optimization problem. Max
 ## Authors
 
 Team University of Bremen, Center of Industrial Mathematics (ZeTeM): 
-- Alexander Denker, Maximillian Schmidt, Johannes Leuschner, Sören Dittmer, Judith Nickel, Clemens Arndt, Gael Rigaud, Richard Schmähl
+- Alexander Denker, Maximilian Schmidt, Johannes Leuschner, Sören Dittmer, Judith Nickel, Clemens Arndt, Gael Rigaud, Richard Schmähl
